@@ -1,2 +1,234 @@
 # utl-identifying-continuos-subseries-of-enrollment-from-claims-data
 Identifying continuos subseries of enrollment from claims data
+
+
+    Identifying continuos subseries of enrollment from claims data
+
+    I am trying to determine patient IDs that are continuously enrolled defined as having at least one claim in each quarter.
+
+    github
+    https://tinyurl.com/yyrmqxkp
+    https://github.com/rogerjdeangelis/utl-identifying-continuos-subseries-of-enrollment-from-claims-data
+
+    Paul provides three more robust solutions to this common problem.
+
+    SAS Forum
+    https://tinyurl.com/yxqyb8hq
+    https://communities.sas.com/t5/SAS-Programming/Continuos-Enrollment-from-claims-data/m-p/575176
+
+       Three Solutions all by
+          Paul Dorfman
+          sashole@bellsouth.net
+
+              For detailed explanation see 'Solution section below
+
+              a.  "paint brush" solution
+                  substr (kx, intck ("qtr", "01jan1582"d, sdate), 1) = "1"
+                  if find (kx, "1111")
+
+              b.  Hash key-indexing "1"
+
+              c.  Simplifed Hash. Hash iterator instaed of do loop
+    *_                   _
+    (_)_ __  _ __  _   _| |_
+    | | '_ \| '_ \| | | | __|
+    | | | | | |_) | |_| | |_
+    |_|_| |_| .__/ \__,_|\__|
+            |_|
+    ;
+
+    data have;
+      input DE_ID SDATE;
+      keep de_id sdate;
+    cards4;
+    10478 16755
+    10478 16820
+    10478 16947
+    10478 16997
+    10478 17010
+    10478 17015
+    10479 16741
+    10479 16741
+    10479 16786
+    10479 16786
+    10479 16811
+    10479 16812
+    10479 16850
+    10479 16850
+    10480 16796
+    10480 16825
+    10480 16853
+    10480 16890
+    10480 16907
+    10480 16907
+    10480 16938
+    10480 16958
+    10480 16989
+    10480 17021
+    10480 17045
+    10480 17073
+    10480 17100
+    10485 17030
+    10488 16742
+    10489 16742
+    10489 16777
+    10489 16808
+    10489 16839
+    10489 16868
+    10489 16896
+    10489 16926
+    10489 16949
+    10489 16988
+    10489 17002
+    10489 17028
+    10489 17059
+    10489 17078
+    10489 17088
+    10489 17088
+    ;;;;
+    run;quit;
+
+    /*
+    WORK.HAVE total obs=44
+
+    bs    DE_ID     QTR
+
+     1    10478    20054
+     2    10478    20061
+     3    10478    20062
+     4    10478    20063
+     5    10478    20063
+     6    10478    20063
+     7    10479    20054
+     8    10479    20054
+     9    10479    20054
+    */
+
+    *            _               _
+      ___  _   _| |_ _ __  _   _| |_
+     / _ \| | | | __| '_ \| | | | __|
+    | (_) | |_| | |_| |_) | |_| | |_
+     \___/ \__,_|\__| .__/ \__,_|\__|
+                    |_|
+    ;
+    WORK.WANT total obs=3
+
+    Obs    DE_ID    QTRS
+
+     1     10478      4
+     2     10480      5
+     3     10489      5
+
+
+    *          _       _   _
+     ___  ___ | |_   _| |_(_) ___  _ __  ___
+    / __|/ _ \| | | | | __| |/ _ \| '_ \/ __|
+    \__ \ (_) | | |_| | |_| | (_) | | | \__ \
+    |___/\___/|_|\__,_|\__|_|\___/|_| |_|___/
+
+    ;
+
+    *                       _       _     _                    _
+      __ _      _ __   __ _(_)_ __ | |_  | |__  _ __ _   _ ___| |__
+     / _` |    | '_ \ / _` | | '_ \| __| | '_ \| '__| | | / __| '_ \
+    | (_| |_   | |_) | (_| | | | | | |_  | |_) | |  | |_| \__ \ | | |
+     \__,_(_)  | .__/ \__,_|_|_| |_|\__| |_.__/|_|   \__,_|___/_| |_|
+               |_|
+    ;
+
+    /*
+    A more correct and robust approach is the key-indexing "paint brush".
+    I've actually offered it whence the question came; below,
+    I'm shamelessly copypasting from my post there.
+
+    As to the task itself (again, I've managed to understand its
+    gist only thanks to @Patrick and his program), it is one of
+    those that easily succumb to the key-indexing approach I privately call
+    "the paint brush method". In fact, in this case it's even more so because
+    with regard to continuous enrollment we normally have to deal with days
+    (and so the key-indexed table have to accommo
+    date the range of all possible dates), while in your case it's much easier
+    because we only have to accommodate a range of quarters. There are only
+    about 4000 quarters between the earliest valid SAS date, 01jan1582,
+    and year 01jan2582, which is why 4000 cells in the key-indexed table
+    (whether they are array items, bitmap bits, or character string bytes)
+    is enough to cover all bases.
+     Below, the simplest form of a key-indexed table is chosen as a character variable KX $4000.
+
+    If your input file is sorted (or grouped) by DE_ID, as in your
+    data sample, the "paint brush" solution is as simple as:
+    */
+
+    data want (keep = de_id) ;
+      length kx $ 4000 ;
+      do until (last.de_id) ;
+        set have ;
+        by de_id ;
+        substr (kx, intck ("qtr", "01jan1582"d, sdate), 1) = "1" ;
+      end ;
+      if find (kx, "1111") ;
+    run ;
+
+    *_         _               _       _                _           _
+    | |__     | |__   __ _ ___| |__   | | _____ _   _  (_)_ __   __| | _____  __
+    | '_ \    | '_ \ / _` / __| '_ \  | |/ / _ \ | | | | | '_ \ / _` |/ _ \ \/ /
+    | |_) |   | | | | (_| \__ \ | | | |   <  __/ |_| | | | | | | (_| |  __/>  <
+    |_.__(_)  |_| |_|\__,_|___/_| |_| |_|\_\___|\__, | |_|_| |_|\__,_|\___/_/\_\
+                                                |___/
+    ;
+    /*
+    Note that it doesn't require the input file to be also sorted by SDATE within DE_ID.
+    The duplicates, i.e. multiple service dates per quarter, are auto-eliminated by key-indexing "1"
+    into the same byte of KX. This is quite advantageous because while large claim files are often
+    sorted by member ID, they're much more rarely sorted also by service date. However, if the power of the has
+    h object is added to the key-indexing, there's no need for the input file to be sorted at all, even by DE_ID:
+    */
+
+    data want (keep = de_id) ;
+      if _n_ = 1 then do ;
+        dcl hash h () ;
+        h.definekey ("de_id") ;
+        h.definedata ("de_id", "kx") ;
+        h.definedone () ;
+        dcl hiter hi ("h") ;
+      end ;
+      set have end = z ;
+      if h.find() ne 0 then kx = put ("", $4000.) ;
+      substr (kx, intck ("qtr", "01jan1582"d, sdate), 1) = "1" ;
+      h.replace() ;
+      if z then do while (hi.next() = 0) ;
+        if find (kx, "1111") then output ;
+      end ;
+    run ;
+    */
+
+    *          _               _       _ _                 _
+      ___     | |__   __ _ ___| |__   (_) |_ ___ _ __ __ _| |_ ___  _ __
+     / __|    | '_ \ / _` / __| '_ \  | | __/ _ \ '__/ _` | __/ _ \| '__|
+    | (__ _   | | | | (_| \__ \ | | | | | ||  __/ | | (_| | || (_) | |
+     \___(_)  |_| |_|\__,_|___/_| |_| |_|\__\___|_|  \__,_|\__\___/|_|
+
+    ;
+
+    /*
+    Note that it's also possible to eschew the hash iterator and the DO loop in favor of the OUTPUT method,
+    but in this case there's no way to drop the longish variable KX from the output since the WHERE clause relies on it:
+    */
+
+    data _null_ ;
+      if _n_ = 1 then do ;
+        dcl hash h () ;
+        h.definekey ("de_id") ;
+        h.definedata ("de_id", "kx") ;
+        h.definedone () ;
+      end ;
+      set have end = z ;
+      if h.find() ne 0 then kx = put ("", $4000.) ;
+      substr (kx, intck ("qtr", "01jan1582"d, sdate), 1) = "1" ;
+      h.replace() ;
+      if z then h.output (dataset: "want (where = (find (kx, '1111')))") ;
+    run ;
+
+
+
+
